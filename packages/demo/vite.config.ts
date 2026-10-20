@@ -13,6 +13,10 @@ export default {
 					src: "node_modules/@mercuryworkshop/scramjet-controller/dist/*",
 					dest: "controller",
 				},
+				{
+					src: "node_modules/@mercuryworkshop/libcurl-transport/dist/*",
+					dest: "libcurl",
+				},
 			],
 			watch: {
 				reloadPageOnChange: true,
