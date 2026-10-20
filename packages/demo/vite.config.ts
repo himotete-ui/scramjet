@@ -1,6 +1,16 @@
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default {
+	server: {
+		proxy: {
+			"/wisp": {
+				target: process.env.VITE_WISP_URL || "ws://localhost:4142/",
+				ws: true,
+				changeOrigin: true,
+				rewrite: (path: string) => path.replace(/^\/wisp/, ""),
+			},
+		},
+	},
 	plugins: [
 		viteStaticCopy({
 			structured: false,

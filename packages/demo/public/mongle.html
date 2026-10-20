@@ -17,7 +17,7 @@
 }
 *{box-sizing:border-box;margin:0}
 html,body{height:100%}
-body{background:var(--bg);color:var(--text);font:15px/1.5 var(--mono);overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font:15px/1.5 var(--mono);overflow-x:hidden;min-height:100vh}
 /* scanlines + vignette */
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:50;
   background:repeating-linear-gradient(0deg,rgba(0,255,65,.035) 0 1px,transparent 1px 3px)}
@@ -31,7 +31,7 @@ canvas#rain{position:fixed;inset:0;width:100%;height:100%;opacity:.16;z-index:0}
   white-space:pre-wrap;font-size:14px;cursor:pointer}
 #boot.done{display:none}
 
-#home{position:relative;z-index:2;max-width:860px;width:100%;margin:0 auto;padding:9vh 22px 40px;flex:1;overflow:auto}
+#home{position:relative;z-index:2;width:100%;margin:0 auto;padding:9vh clamp(22px,4vw,64px) 40px;flex:1;overflow:auto;min-height:calc(100vh - 64px)}
 #home[hidden],#view[hidden]{display:none}
 h1{font-size:clamp(34px,8.5vw,76px);font-weight:800;letter-spacing:.12em;color:var(--neon);
   text-align:center;text-shadow:0 0 8px var(--neon),0 0 28px rgba(0,255,65,.55),0 0 70px rgba(0,255,65,.3);
@@ -80,16 +80,29 @@ select,.s{background:var(--panel);color:var(--neon);border:1px solid var(--line)
 
 /* log line for errors / info */
 #log{min-height:22px;margin-top:16px;font-size:13px;color:var(--mid)}
+#log:empty{display:none}
 #log.err{color:var(--warn)}
+#diag{margin-top:14px;padding:12px 14px;border:1px solid rgba(255,59,92,.35);background:rgba(38,8,13,.7);border-radius:6px;color:var(--text);display:none}
+#diag.visible{display:block}
+#diag h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--warn);margin:0 0 8px}
+#diag p{margin:0;color:var(--text);font-size:12px;line-height:1.7;white-space:pre-wrap}
+#historyPanel{margin-top:16px;padding:12px 14px;border:1px solid var(--line);background:rgba(3,11,5,.8);border-radius:6px;display:none}
+#historyPanel.visible{display:block}
+#historyPanel h3{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:0 0 10px}
+#historyList{display:grid;gap:8px;max-height:220px;overflow:auto}
+.history-item{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:4px;background:rgba(0,255,65,.03)}
+.history-item button{background:none;border:0;color:var(--neon);font:inherit;cursor:pointer;padding:0}
+.history-item small{color:var(--dim)}
 
 /* proxied view */
-#viewWrap{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column}
+#viewWrap{position:fixed;inset:0;z-index:60;background:#000;display:flex;flex-direction:column;min-height:100vh}
 #viewWrap.on{display:flex}
 .vbar{display:flex;gap:10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
 .vbar button{background:none;color:var(--neon);border:1px solid var(--line);border-radius:4px;
   font:inherit;padding:5px 12px;cursor:pointer}
 .vbar button:hover{border-color:var(--neon);box-shadow:0 0 12px rgba(0,255,65,.35)}
 .vbar button:disabled{opacity:.35;cursor:not-allowed;box-shadow:none}
+.vbar button[aria-pressed="true"]{color:#000;background:var(--neon);border-color:var(--neon)}
 #tabs{display:flex;gap:6px;flex:1;overflow-x:auto;min-width:0}
 .tab{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:4px;padding:4px 8px;color:var(--dim);cursor:pointer;white-space:nowrap;max-width:200px;font-size:13px;flex:none}
 .tab span{overflow:hidden;text-overflow:ellipsis}
@@ -149,6 +162,8 @@ select,.s{background:var(--panel);color:var(--neon);border:1px solid var(--line)
 <section id="viewWrap" class="on" aria-label="Browser">
   <div class="vbar">
     <button id="newtab" type="button">home</button>
+    <button id="resetProxy" type="button" title="Reset the Scramjet proxy worker and reload">reset</button>
+    <button id="turbo" type="button" aria-pressed="false" title="Skip images, video, audio, and web fonts on proxied pages">turbo off</button>
     <div id="tabs" role="tablist"></div>
     <button id="bookmark" type="button" disabled>☆ bookmark</button>
     <button id="source" type="button" disabled>view source</button>
@@ -157,7 +172,7 @@ select,.s{background:var(--panel);color:var(--neon);border:1px solid var(--line)
 
 <main id="home">
   <h1 id="title">MONGLE<span>_</span>PROXY</h1>
-  <p class="status"><b>tunnel active</b> &nbsp;v1.0&nbsp; powered by Scramjet</p>
+  <p class="status"><b>tunnel active</b> &nbsp;<span id="appVersion">v9</span>&nbsp; powered by Scramjet</p>
 
   <form class="prompt" id="form" autocomplete="off">
     <label for="url">root@mongle:~$</label>
@@ -167,6 +182,14 @@ select,.s{background:var(--panel);color:var(--neon);border:1px solid var(--line)
   </form>
   <div class="hint"><span>Press <kbd>/</kbd> to focus the prompt</span><span>Search terms use the engine selected below</span></div>
   <div id="log"></div>
+  <div id="diag" aria-live="polite">
+    <h3>proxy diagnostics</h3>
+    <p id="diagText">No proxy issues detected.</p>
+  </div>
+  <div id="historyPanel" aria-live="polite">
+    <h3>version log</h3>
+    <div id="historyList"></div>
+  </div>
   <button class="tile" id="resume" type="button" hidden></button>
 
   <p class="sec">quick launch</p>
@@ -210,30 +233,107 @@ const store = {
    SCRAMJET ENGINE: uses the repo's controller API.
    The dev server starts Wisp at localhost:4142 by default.
    ============================================================ */
-const codespacesHost = location.hostname.match(/^(.*)-\d+\.app\.github\.dev$/);
-const WISP_URL = codespacesHost
-  ? `wss://${codespacesHost[1]}-4142.app.github.dev/`
-  : "ws://localhost:4142/";
+function getWispUrl(){
+  if (location.protocol === 'https:') return `wss://${location.host}/wisp/`;
+  if (location.protocol === 'http:') return `ws://${location.host}/wisp/`;
+
+  const host = location.hostname;
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+
+  const codespacesMatch = host.match(/^(.*)-\d+\.(?:preview\.)?app\.github\.dev$/);
+  if (codespacesMatch) {
+    const suffix = host.includes('.preview.app.github.dev') ? 'preview.app.github.dev' : 'app.github.dev';
+    return `${proto}://${codespacesMatch[1]}-4142.${suffix}/`;
+  }
+
+  if (host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '0.0.0.0') {
+    return `${proto}://${host === '[::1]' ? '[::1]' : host}:4142/`;
+  }
+
+  if (host && host !== 'localhost') {
+    return `${proto}://${host}:4142/`;
+  }
+
+  return 'ws://localhost:4142/';
+}
+
+const WISP_URL = getWispUrl();
 
 let controllerPromise;
+let controllerRetryCount = 0;
 const frames = new WeakMap();
+const turboHookFrames = new WeakSet();
+let turboEnabled = store.get('mongle.turbo') === 'true';
+
+function installTurboHook(frame){
+  if (turboHookFrames.has(frame)) return;
+  const plugin = new $scramjet.Plugin('mongle-turbo');
+  plugin.tap(frame.hooks.fetch.request, (context, props) => {
+    if (!turboEnabled) return;
+    const destination = context?.request?.destination;
+    if (!['image', 'video', 'audio', 'font', 'track'].includes(destination)) return;
+    props.earlyResponse = new Response(null, {status:204, statusText:'Turbo resource skipped'});
+  });
+  turboHookFrames.add(frame);
+}
+
+async function resetServiceWorkers() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    for (const registration of registrations) {
+      try { await registration.unregister(); } catch (e) { /* ignore cleanup errors */ }
+    }
+  } catch (e) {
+    // Some browsers reject the API during a stale registration state; this is non-fatal.
+  }
+
+  try {
+    if ('caches' in window) {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    }
+  } catch (e) {
+    // Cache cleanup is optional.
+  }
+}
+
+async function bootController() {
+  if (typeof $scramjetController === 'undefined')
+    throw new Error('Scramjet controller script did not load. Check the script paths in <head>.');
+  if (!window.LibcurlTransport)
+    throw new Error('Libcurl transport did not load. Check /libcurl/index.js is served.');
+
+  const { Controller } = $scramjetController;
+  const LibcurlClient = window.LibcurlTransport.LibcurlClient;
+
+  try {
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/', type: 'classic', updateViaCache: 'none' });
+    await navigator.serviceWorker.ready;
+    const serviceworker = navigator.serviceWorker.controller ?? registration.active;
+    if (!serviceworker) throw new Error('No service worker available for Scramjet. Reload the page once and try again.');
+    const controller = new Controller({ serviceworker, transport: new LibcurlClient({ wisp: WISP_URL }) });
+    await controller.wait();
+    return controller;
+  } catch (error) {
+    await resetServiceWorkers();
+    throw error;
+  }
+}
 
 function getController(){
   if (!controllerPromise){
     controllerPromise = (async () => {
-      if (typeof $scramjetController === 'undefined')
-        throw new Error('Scramjet controller script did not load. Check the script paths in <head>.');
-      if (!window.LibcurlTransport)
-        throw new Error('Libcurl transport did not load. Check /libcurl/index.js is served.');
-      const { Controller } = $scramjetController;
-      const LibcurlClient = window.LibcurlTransport.LibcurlClient;
-      const registration = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-      const serviceworker = navigator.serviceWorker.controller ?? registration.active;
-      if (!serviceworker) throw new Error('No service worker available for Scramjet. Reload the page once and try again.');
-      const controller = new Controller({ serviceworker, transport: new LibcurlClient({ wisp: WISP_URL }) });
-      await controller.wait();
-      return controller;
+      try {
+        return await bootController();
+      } catch (error) {
+        if (controllerRetryCount === 0) {
+          controllerRetryCount += 1;
+          await resetServiceWorkers();
+          return await bootController();
+        }
+        throw error;
+      }
     })();
     controllerPromise.catch(() => { controllerPromise = null; });
   }
@@ -248,6 +348,7 @@ async function engineGo(url, container){
     frame = controller.createFrame(document.createElement('iframe'));
     frames.set(container, frame);
   }
+  installTurboHook(frame);
   if (frame.element.parentElement !== container) container.replaceChildren(frame.element);
   frame.go(url);
 }
@@ -260,16 +361,109 @@ function resolve(input){
   if (/^[^\s]+\.[a-z]{2,}([\/?#].*)?$/i.test(v)) return 'https://' + v;
   return $('engine').value.replace('%s', encodeURIComponent(v));
 }
-function log(msg, err){ const l=$('log'); l.textContent = msg ? '> ' + msg : ''; l.className = err ? 'err' : ''; }
+function formatProxyFailure(error, extra = '') {
+  const text = error && error.message ? error.message : String(error || 'Unknown error');
+  const details = [];
+  details.push('The browser attempted to start the Scramjet proxy, but the connection step failed.');
+
+  if (text.includes('Could not connect to server') || text.includes('error code 7')) {
+    details.push('This usually means the service worker is stale or the Wisp server is not reachable from the browser.');
+    details.push(`The page expects the demo server on http://localhost:4141 and the Wisp relay on ws://localhost:4142/. The current browser is on ${location.href}.`);
+    details.push('If an older service worker is still registered, it can keep trying to route requests through a dead connection. Clear the page service worker and reload.');
+  } else if (text.includes('service worker') || text.includes('No service worker available')) {
+    details.push('The browser did not have a working service worker controller available when the proxy was initialized.');
+    details.push('If the page was opened before the SW was registered, or a stale worker is cached, that can block the proxy startup path.');
+  } else if (text.includes('Failed to fetch') || text.includes('fetch')) {
+    details.push('A fetch or network request from the proxy failed before the proxied page could be created.');
+    details.push('This often happens when the browser rejects a cached worker or a connection is interrupted during startup.');
+  } else {
+    details.push('This failure happened before the proxy could finish initializing a page tab.');
+  }
+
+  if (extra) details.push(extra);
+  if (error && error.stack) details.push(`Technical detail: ${error.stack.split('\n')[0]}`);
+
+  return details.join('\n\n');
+}
+
+function setDiag(message, detailed) {
+  const diag = $('diag');
+  const text = $('diagText');
+  if (!message) {
+    diag.classList.remove('visible');
+    text.textContent = 'No proxy issues detected.';
+    return;
+  }
+  diag.classList.add('visible');
+  text.textContent = `${message}\n\n${detailed || ''}`.trim();
+}
+
+function log(msg, err, detail){ const l=$('log'); l.textContent = msg ? '> ' + msg : ''; l.className = err ? 'err' : ''; if (err) setDiag(msg, detail || formatProxyFailure(new Error(msg))); else setDiag('', ''); }
 
 const homeTab={id:'home',kind:'home',label:'home',url:'',el:null};
 const tabs=[homeTab]; let active=homeTab, seq=0;
 const host = u => { try{ return new URL(u).hostname }catch(e){ return u } };
 let bookmarks=[];
+const APP_VERSION = 'v9';
+let versionHistory=[];
+let lastShiftQ = 0;
 try{
   const savedBookmarks=JSON.parse(store.get('mongle.bookmarks')||'[]');
   if(Array.isArray(savedBookmarks)) bookmarks=savedBookmarks.filter(b=>b&&typeof b.url==='string'&&typeof b.label==='string');
 }catch(e){}
+try{
+  const savedHistory=JSON.parse(store.get('mongle.versionHistory')||'[]');
+  if(Array.isArray(savedHistory)) versionHistory=savedHistory.filter(entry=>entry&&typeof entry.label==='string'&&typeof entry.when==='string');
+}catch(e){}
+
+function renderHistory(){
+  const list=$('historyList');
+  if(!list) return;
+  list.textContent='';
+  if(!versionHistory.length){
+    const empty=document.createElement('div');
+    empty.className='history-item';
+    empty.innerHTML='<small>no version events yet</small>';
+    list.append(empty);
+    return;
+  }
+  versionHistory.slice().reverse().forEach((entry)=>{
+    const row=document.createElement('div');
+    row.className='history-item';
+    const text=document.createElement('div');
+    const title=document.createElement('button');
+    title.type='button';
+    title.textContent = entry.label;
+    title.onclick = entry.url ? () => launch(entry.url) : null;
+    if (!entry.url) title.disabled = true;
+    const stamp=document.createElement('small');
+    stamp.textContent=entry.when;
+    text.append(title);
+    row.append(text, stamp);
+    list.append(row);
+  });
+}
+
+function pushVersionHistory(label, url = ''){
+  if (!label) return;
+  const entry = {
+    url,
+    label: label.startsWith(APP_VERSION) ? label : `${APP_VERSION} · ${label}`,
+    when: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})
+  };
+  const existing = versionHistory.findIndex((item) => item.label === entry.label && item.url === entry.url);
+  if (existing !== -1) versionHistory.splice(existing,1);
+  versionHistory.push(entry);
+  while (versionHistory.length > 12) versionHistory.shift();
+  store.set('mongle.versionHistory',JSON.stringify(versionHistory));
+  renderHistory();
+}
+
+const previousVersion=store.get('mongle.version');
+if(previousVersion!==APP_VERSION){
+  pushVersionHistory(previousVersion?`updated from ${previousVersion}`:'first tracked release');
+  store.set('mongle.version',APP_VERSION);
+}
 
 function show(on=true){
   $('viewWrap').classList.toggle('on',on);
@@ -286,6 +480,11 @@ function updateToolbar(){
   $('bookmark').setAttribute('aria-pressed',String(saved));
   $('source').disabled=!isSite;
   $('reload').disabled=!isSite;
+}
+function updateTurboButton(){
+  const button=$('turbo');
+  button.textContent=turboEnabled?'turbo on':'turbo off';
+  button.setAttribute('aria-pressed',String(turboEnabled));
 }
 function selectTab(tab){
   active=tab;
@@ -307,6 +506,12 @@ function renderTabs(){
     if(t.el) t.el.style.display = t===active ? 'block' : 'none';
   });
 }
+function toggleHistoryPanel(){
+  const panel=$('historyPanel');
+  if (!panel) return;
+  panel.classList.toggle('visible');
+  renderHistory();
+}
 function closeTab(t){
   if(t===homeTab) return;
   t.cleanup?.();
@@ -318,17 +523,30 @@ function closeTab(t){
 }
 renderTabs();
 updateToolbar();
+updateTurboButton();
 show(true);
 async function launch(raw){
   const url=resolve(raw);
-  if(!url) return log('Enter a URL or search term first.', true);
+  if(!url) return log('Enter a URL or search term first.', true, 'No URL was provided to the proxy. The app cannot create a proxied tab until there is a valid destination to visit.');
   const el=document.createElement('div'); el.className='pane'; $('view').append(el);
   const t={id:++seq,kind:'site',url,el,label:host(url)};
   tabs.push(t); selectTab(t); log('opening tunnel to '+url);
+  pushVersionHistory('proxy navigated', url);
   try{ await engineGo(url, el); log(''); }
-  catch(e){ closeTab(t); log(e.message||'Connection failed. Check the URL and try again.', true); }
+  catch(e){ closeTab(t); const message = e && e.message ? e.message : 'Connection failed. Check the URL and try again.'; const detail = formatProxyFailure(e, `Attempted target: ${url}\nWisp endpoint: ${WISP_URL}\nService worker scope: ${location.origin}/`); log(message, true, detail); }
 }
 $('newtab').onclick = () => selectTab(homeTab);
+$('turbo').onclick = () => {
+  turboEnabled=!turboEnabled;
+  store.set('mongle.turbo',String(turboEnabled));
+  updateTurboButton();
+  pushVersionHistory(turboEnabled?'turbo enabled':'turbo disabled');
+  if(active?.kind==='site'){
+    const url=active.url;
+    active.el.textContent='';
+    engineGo(url,active.el).catch(error=>log(error.message,true,formatProxyFailure(error,`Turbo reload failed for: ${url}\nWisp endpoint: ${WISP_URL}`)));
+  }
+};
 $('bookmark').onclick = () => {
   if(active?.kind!=='site') return;
   const index=bookmarks.findIndex(b=>b.url===active.url);
@@ -415,35 +633,12 @@ function openDrawingApp(){
       <button class="app-button" type="button" data-tool="eraser" aria-pressed="false">eraser</button>
       <button class="app-button" type="button" data-action="undo">undo</button>
       <button class="app-button" type="button" data-action="clear">clear</button>
-      <input class="s draw-name" type="text" maxlength="40" placeholder="drawing name" aria-label="Drawing name">
-      <button class="app-button" type="button" data-action="save-drawing">save drawing</button>
-      <select class="draw-saved" aria-label="Saved drawings"><option value="">saved drawings</option></select>
-      <button class="app-button" type="button" data-action="load-drawing" disabled>open</button>
-      <button class="app-button" type="button" data-action="delete-drawing" disabled>delete</button>
       <button class="app-button" type="button" data-action="save">export PNG</button>
     </div>
     <div class="draw-board"><canvas class="draw-canvas" width="1200" height="720" aria-label="Drawing canvas"></canvas></div>`;
   const canvas=el.querySelector('.draw-canvas'),context=canvas.getContext('2d');
   const color=el.querySelector('.draw-color'),size=el.querySelector('.draw-size');
-  const undo=el.querySelector('[data-action="undo"]'),nameInput=el.querySelector('.draw-name');
-  const savedSelect=el.querySelector('.draw-saved');
-  const openSaved=el.querySelector('[data-action="load-drawing"]'),deleteSaved=el.querySelector('[data-action="delete-drawing"]');
-  let savedDrawings=[];
-  try{
-    const parsed=JSON.parse(store.get('mongle.drawings')||'[]');
-    if(Array.isArray(parsed)) savedDrawings=parsed.filter(item=>item&&typeof item.id==='string'&&typeof item.name==='string'&&typeof item.image==='string');
-  }catch(e){}
-  const renderSavedDrawings=selectedId=>{
-    savedSelect.textContent='';
-    const placeholder=document.createElement('option');placeholder.value='';placeholder.textContent='saved drawings';savedSelect.append(placeholder);
-    savedDrawings.forEach(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=item.name;savedSelect.append(option);});
-    if(selectedId) savedSelect.value=selectedId;
-    openSaved.disabled=!savedSelect.value;deleteSaved.disabled=!savedSelect.value;
-  };
-  const persistDrawings=()=>{
-    try{localStorage.setItem('mongle.drawings',JSON.stringify(savedDrawings));return true;}
-    catch(e){log('Could not save drawing. Browser storage may be full.',true);return false;}
-  };
+  const undo=el.querySelector('[data-action="undo"]');
   const history=[]; let drawing=false,tool='pen';
   const saveState=()=>{
     history.push(context.getImageData(0,0,canvas.width,canvas.height));
@@ -455,7 +650,6 @@ function openDrawingApp(){
     return{x:(e.clientX-bounds.left)*canvas.width/bounds.width,y:(e.clientY-bounds.top)*canvas.height/bounds.height};
   };
   context.fillStyle='#ffffff'; context.fillRect(0,0,canvas.width,canvas.height); saveState();
-  renderSavedDrawings();
   canvas.addEventListener('pointerdown',e=>{
     drawing=true; canvas.setPointerCapture(e.pointerId); saveState();
     const p=point(e); context.beginPath(); context.moveTo(p.x,p.y);
@@ -479,36 +673,6 @@ function openDrawingApp(){
   });
   el.querySelector('[data-action="clear"]').addEventListener('click',()=>{
     saveState(); context.clearRect(0,0,canvas.width,canvas.height); context.fillStyle='#ffffff'; context.fillRect(0,0,canvas.width,canvas.height);
-  });
-  el.querySelector('[data-action="save-drawing"]').addEventListener('click',()=>{
-    const name=nameInput.value.trim()||'Untitled drawing';
-    const existing=savedDrawings.findIndex(item=>item.name.toLowerCase()===name.toLowerCase());
-    const id=existing>=0?savedDrawings[existing].id:`drawing-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-    const item={id,name,image:canvas.toDataURL('image/png')};
-    if(existing>=0) savedDrawings[existing]=item; else savedDrawings.push(item);
-    if(savedDrawings.length>8) savedDrawings=savedDrawings.slice(-8);
-    if(!persistDrawings()) return;
-    renderSavedDrawings(id);log(`Saved drawing: ${name}`);
-  });
-  savedSelect.addEventListener('change',()=>{
-    openSaved.disabled=!savedSelect.value;deleteSaved.disabled=!savedSelect.value;
-  });
-  openSaved.addEventListener('click',()=>{
-    const item=savedDrawings.find(drawing=>drawing.id===savedSelect.value);
-    if(!item) return;
-    const image=new Image();
-    image.onload=()=>{
-      context.clearRect(0,0,canvas.width,canvas.height);context.drawImage(image,0,0,canvas.width,canvas.height);
-      history.length=0;saveState();nameInput.value=item.name;log(`Opened drawing: ${item.name}`);
-    };
-    image.onerror=()=>log('Could not open that saved drawing.',true);
-    image.src=item.image;
-  });
-  deleteSaved.addEventListener('click',()=>{
-    const id=savedSelect.value;
-    savedDrawings=savedDrawings.filter(item=>item.id!==id);
-    if(!persistDrawings()) return;
-    renderSavedDrawings();log('Saved drawing deleted.');
   });
   el.querySelector('[data-action="save"]').addEventListener('click',()=>canvas.toBlob(blob=>{
     if(!blob) return log('Could not export the canvas.',true);
@@ -605,7 +769,32 @@ $('apps').addEventListener('click',e=>{
   if(app==='music')openMusicApp();
 });
 $('form').addEventListener('submit', e => { e.preventDefault(); launch($('url').value); $('url').value=''; });
-$('reload').onclick = () => { if(!active) return; active.el.textContent=''; engineGo(active.url, active.el).catch(e=>log(e.message,true)); };
+$('reload').onclick = () => { if(!active) return; active.el.textContent=''; engineGo(active.url, active.el).catch(e=>log(e.message,true, formatProxyFailure(e, `Page reload failed for: ${active.url}\nWisp endpoint: ${WISP_URL}`))); };
+window.addEventListener('error', (event) => {
+  const message = event.message || 'Unknown browser error';
+  if (message.includes('Could not connect to server') || message.includes('Internal Service Worker Error') || message.includes('service worker')) {
+    pushVersionHistory('service worker connection issue');
+    log(message, true, formatProxyFailure(new Error(message), `Browser event source: error listener\nCurrent URL: ${location.href}\nWisp endpoint: ${WISP_URL}`));
+  }
+});
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason || 'Unhandled promise rejection';
+  const text = reason && reason.message ? reason.message : String(reason);
+  if (text.includes('Could not connect to server') || text.includes('Internal Service Worker Error') || text.includes('service worker')) {
+    pushVersionHistory('service worker connection issue');
+    log(text, true, formatProxyFailure(reason instanceof Error ? reason : new Error(text), `Unhandled rejection at: ${location.href}\nWisp endpoint: ${WISP_URL}`));
+  }
+});
+$('resetProxy').onclick = async () => {
+  pushVersionHistory('proxy reset');
+  log('resetting proxy worker...', false, 'The page is clearing cached service worker registrations and reloading so a stale proxy connection does not keep intercepting requests.');
+  try {
+    await resetServiceWorkers();
+    location.reload();
+  } catch (e) {
+    log((e && e.message) || 'Unable to reset the proxy worker.', true, formatProxyFailure(e, 'Manual reset failed before reload. The browser may still have an active stale worker registration.'));
+  }
+};
 $('tabs').addEventListener('click', e => {
   const x=e.target.closest('[data-x]'), d=e.target.closest('.tab'); if(!d) return;
   const t=tabs.find(t=>String(t.id)===d.dataset.id); if(!t) return;
@@ -614,6 +803,17 @@ $('tabs').addEventListener('click', e => {
 });
 addEventListener('keydown', e => {
   if (e.key==='/' && document.activeElement!==$('url') && active===homeTab){ e.preventDefault(); $('url').focus(); }
+  if (e.key.toLowerCase()==='q' && e.shiftKey) {
+    const now = Date.now();
+    if (now - lastShiftQ < 450) {
+      e.preventDefault();
+      pushVersionHistory('version check');
+      toggleHistoryPanel();
+      lastShiftQ = 0;
+    } else {
+      lastShiftQ = now;
+    }
+  }
 });
 
 /* ---------- quick launch ---------- */
